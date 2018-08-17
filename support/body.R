@@ -10,8 +10,10 @@ source('support/tabs.R')
 body <- dashboardBody(
   tabItems(
     # Tab list
+    main_tab,
     data_tab,
-    scatters_tab,
+    #scatters_tab,
+    scatter_tab,
     histograms_tab,
     cleavages_tab,
     ptm_tab,

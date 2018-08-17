@@ -7,6 +7,31 @@
 
 # -------------------------------------------------------------------
 
+### Module for the crowd source running statistics page
+
+homePageInput <- function(id) {
+  ns <- NS(id)
+  
+  tagList(
+    leafletOutput(ns("mymap"),height = 800)
+  )
+}
+
+homePage <- function(input, output, session){
+  
+  output$mymap <- renderLeaflet({
+    
+    m <- leaflet() %>%
+      addTiles() %>% 
+      setView(lng = -3.174, lat = 54.156, zoom = 6) %>% 
+      addProviderTiles(providers$CartoDB.Positron)
+    m
+  })
+  
+}
+
+# -------------------------------------------------------------------
+
 ### Module for the Data input page
 
 ## UI Module
@@ -178,7 +203,7 @@ dataPage <- function(input, output, session,current_dataSet_server_side) {
 
 # -------------------------------------------------------------------
 
-### Scat Page Display Modular Page
+### Scatters Page Display Modular Page
 
 
 ## Inner module for Scatter Count
@@ -251,7 +276,7 @@ scatDis <- function(input, output, session, current_dataSet_server_side) {
 
   
   
-  # Drop down menu for scoring column choice
+  # scoring column choice
   output$choose_range <- renderUI({
     # If missing input, return to avoid error later in function
     if(is.null(current_dataSet_server_side()))
@@ -285,7 +310,213 @@ scatDis <- function(input, output, session, current_dataSet_server_side) {
 
 }
 
+# -------------------------------------------------------------------
 
+## Module for single scatter with options to filter and choose cats
+
+singleScatPageInput <- function(id){
+  ns <- NS(id)
+  
+  tagList(
+    column(width = 9,
+           box(title = "Query Plotter Output",width = 12, 
+               box(width = 12,
+                   innerVariableGgplotInput(ns("variableGgPlot"))
+               )
+               )
+           ),
+    column(width = 3,
+           box(title = "Query Builder", 
+               width = 12,
+               status = "info",
+               solidHeader = FALSE,
+               collapsible = TRUE,
+               background = "navy",
+               box(width = 12,
+                   status = "info",
+                   solidHeader = FALSE,
+                   collapsible = FALSE,
+                   background = "navy",
+                   uiOutput(ns("choose_columns_X"))),
+               box(width = 12,
+                   status = "info",
+                   solidHeader = FALSE,
+                   collapsible = FALSE,
+                   background = "navy",
+                   uiOutput(ns("choose_columns_Y"))),
+               box(width = 12,
+                   status = "info",
+                   solidHeader = FALSE,
+                   collapsible = FALSE,
+                   background = "navy",
+                   uiOutput(ns("choose_range"))),
+               box(width = 12,
+                   status = "info",
+                   solidHeader = FALSE,
+                   collapsible = FALSE,
+                   background = "navy",
+                   radioButtons(ns("zAxis"), "z axis:",
+                                c("Score" = FALSE,
+                                  "Score and Decoy" = TRUE)))
+               ),
+           box(width = 12, title = "Information",
+              solidHeader = TRUE,
+               collapsible = TRUE,
+               h5("Information Text"))
+           )
+  )
+}
+
+singleScatPage <- function(input, output, session, current_dataSet_server_side){
+  ns <- session$ns
+  
+  
+  # -------------------------------------------------------------------
+  
+  ## Outputs
+  
+  
+  #X axis selection choice
+  output$choose_columns_X <- renderUI({
+    # If missing input, return to avoid error later in function
+    if(is.null(current_dataSet_server_side()$pep)){
+      validate(
+        need(FALSE, "No data set uploaded ")
+      )
+      return()
+    }
+    
+    
+    colnames <- getColNames(current_dataSet_server_side()$pep)
+    
+    #get the selected option
+    if("RT" %in% colnames){
+      col_mat <- grepl("RT",colnames)
+      selected_default <- colnames[which(col_mat)]
+    }else{
+      selected_default <- NULL
+    }
+    
+    selectInput(ns("choose_columns_X"), "Choose X axis", as.list(colnames),selected = selected_default) #Create the drop down list
+  })
+  
+  
+  
+  
+  #Y axis selection choice
+  output$choose_columns_Y <- renderUI({
+    # If missing input, return to avoid error later in function
+    if(is.null(current_dataSet_server_side()$pep)){
+      validate(
+        need(FALSE, "No data set uploaded ")
+      )
+      return()
+    }
+    
+    
+    colnames <- getColNames(current_dataSet_server_side()$pep)
+    
+    #get the selected option
+    if("Mass" %in% colnames){
+      col_mat <- grepl("Mass",colnames)
+      selected_default <- colnames[which(col_mat)]
+    }else{
+      selected_default <- NULL
+    }
+    
+    selectInput(ns("choose_columns_Y"), "Choose Y axis", as.list(colnames),selected = selected_default) #Create the drop down list
+  })
+  
+  
+  
+  # scoring range choice
+  output$choose_range <- renderUI({
+    # If missing input, return to avoid error later in function
+    if(is.null(current_dataSet_server_side())){
+      validate(
+        need(!is.null(current_dataSet_server_side()$pep), "No data set uploaded ")
+      )
+      return()
+    }
+
+    #Get Range
+    range_to_use <- get_score_range(current_dataSet_server_side())
+    #Create the Score slider
+    sliderInput(ns("score_slider"), "Score Range:", range_to_use[1], range_to_use[2], range_to_use)
+    
+  })
+  
+  
+  # -------------------------------------------------------------------
+  
+  #Reactive X axis selection
+  x_axis_selection <- reactive({
+    validate(
+      need(!is.null(current_dataSet_server_side()$pep), "No data set uploaded ")
+    )
+    input$choose_columns_X
+  })
+  
+  #Reactive Y axis selection
+  y_axis_selection <- reactive({
+    validate(
+      need(!is.null(current_dataSet_server_side()$pep), "No data set uploaded ")
+    )
+    input$choose_columns_Y
+  })
+  
+  #Reactive slider input
+  slider_range <- reactive({
+    validate(
+      need(!is.null(current_dataSet_server_side()$pep), "No data set uploaded ")
+    )
+    input$score_slider
+  })
+  
+  #Reactive decoy input
+  zChoice <- reactive({
+    validate(
+      need(!is.null(current_dataSet_server_side()$pep), "No data set uploaded ")
+    )
+    input$zAxis
+  })
+  
+  
+  
+  # Call the module for plotting
+  callModule(innerVariableGgplot,"variableGgPlot",current_dataSet_server_side,slider_range,zChoice,x_axis_selection,y_axis_selection)
+  
+}
+
+
+
+
+## Inner module for the variable ggplot
+
+innerVariableGgplotInput <- function(id){
+  ns <- NS(id)
+  
+  tagList(
+    plotOutput(ns("plot"),height = 600)
+  )
+}
+
+innerVariableGgplot <- function(input, output, session, current_dataSet_server_side,slider_range,zChoice,x_axis_selection,y_axis_selection){
+  output$plot <- renderPlot({
+    
+    validate(
+      need(!is.null(current_dataSet_server_side()$pep), "No data set uploaded ")
+    )
+    
+    # Create a Progress object
+    progress <- shiny::Progress$new()
+    # Make sure it closes when we exit this reactive, even if there's an error
+    on.exit(progress$close())
+    progress$set(message = "Making plot", value = 0.99)
+    plotVariableScatter(current_dataSet_server_side(),slider_range(),zChoice(),x_axis_selection(),y_axis_selection())
+    
+  })
+}
 
 # -------------------------------------------------------------------
 

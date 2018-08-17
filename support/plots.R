@@ -108,6 +108,48 @@ plot_scat_rt_mass_deocy <- function(df_to_plot,range){
 
 # -------------------------------------------------------------------
 
+## Function to plot scatter with varibles
+
+plotVariableScatter <- function(current_dataSet_server_side,score_range,seperateByDecoy,x_col_id,y_col_id){
+  
+  #Subset for the score slider range
+  df_to_plot <- subset(current_dataSet_server_side$pep, Score > score_range[1] & Score < score_range[2])
+  
+  if(seperateByDecoy){  #if seperate by decoy is true
+    
+    # dummy up data
+    dat1<- subset(df_to_plot,grepl("Decoy",Decoy)) #Decoy entries
+    dat2<- subset(df_to_plot,!grepl("Decoy",Decoy))  #Target entries
+    
+    gg_to_plot <- ggplot() 
+    gg_to_plot <- gg_to_plot + geom_point(data=dat2, aes_string(x=x_col_id, y=y_col_id, color="Score"), shape=22, size=3)
+    gg_to_plot <- gg_to_plot + scale_color_gradient(high="plum1", low="darkmagenta",name="Target Score")
+    gg_to_plot <- gg_to_plot +  geom_point(data= dat1, aes_string(x=x_col_id, y=y_col_id, shape="shp", fill="Score"), shape=21, size=2,alpha=0.5)
+    gg_to_plot <- gg_to_plot + scale_fill_gradient(high="darkgreen", low="aquamarine",name="Decoy Score") + theme_bw()
+    
+    return(gg_to_plot)
+    
+  }else{  #if seperate by deocy was false
+    
+    gg_to_plot <- ggplot(df_to_plot, aes_string(x_col_id,y_col_id, colour = "Score"))+ 
+      geom_count(show.legend=T,alpha = 0.5)+
+      theme_bw()+
+      scale_colour_gradient2(name = "Score", low = "yellow", mid = "aquamarine",
+                             high = "darkmagenta")
+    
+    return(gg_to_plot)
+    
+  }
+  
+  
+  
+}
+
+
+
+
+# -------------------------------------------------------------------
+
 ## Function to produce generic hist plot with inputs
 
 plot_hist <- function(current_dataSet_server_side,no_bins,title_of_plot,yLabel,col_id){

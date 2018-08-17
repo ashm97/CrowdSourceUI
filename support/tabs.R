@@ -5,6 +5,10 @@
 ## Author: Ashleigh Myall
 ##################################################
 
+# Main tab
+main_tab <- tabItem(tabNam = "main",
+                    homePageInput("mainPage")
+                    )
 
 # Second tab 'Data' content
 data_tab <- tabItem(tabName = "data",
@@ -13,9 +17,14 @@ data_tab <- tabItem(tabName = "data",
 )
 
 
-# Scatter tab
+# Scatters tab
 scatters_tab <- tabItem(tabName = "scatters",
                         scatDisInput("scats")
+)
+
+# Scatter tab
+scatter_tab <- tabItem(tabName = "scatter",
+                       singleScatPageInput("scat")
 )
 
 # Hist tab

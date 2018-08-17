@@ -193,7 +193,7 @@ handleFileMzid <- function(inputFile){
   
   #Score dataframe
   scr <- score(mzid)
-  mzid_df <- data.frame(psms(mzid),scr[,2])
+  mzid_df <- data.frame(psms(mzid),scr[,2:ncol(scr)])
   
   
   #Format the cols for the app
@@ -316,4 +316,15 @@ returnCurrentServerDF <- function(current_dataSet,col,decoyString){
   
 }
 
+# -------------------------------------------------------------------
 
+## Function to return numeric colnames as a list without the stats DF elements
+
+getColNames <- function(df){
+  
+  colNames <- names(Filter(is.numeric,df)) # Get the data set with the appropriate name
+  
+  colNames <- colNames[1:(length(colNames)-6)] # remove the last 6 cols which are ffrom the stats calc
+  
+  return(colNames)
+}
