@@ -16,12 +16,6 @@ data_tab <- tabItem(tabName = "data",
                     
 )
 
-
-# Scatters tab
-scatters_tab <- tabItem(tabName = "scatters",
-                        scatDisInput("scats")
-)
-
 # Scatter tab
 scatter_tab <- tabItem(tabName = "scatter",
                        singleScatPageInput("scat")

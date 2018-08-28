@@ -15,6 +15,8 @@ library(mzR)
 library(dplyr)
 library(shinyalert)
 library(leaflet)
+library(splitstackshape)
+library(readr)
 
 source('support/support_functions.R')
 source('support/plots.R')
@@ -28,7 +30,6 @@ server <- function(input, output, session) {
   ## Calling modules
   callModule(homePage,"mainPage")
   current_dataSet_server_side <- callModule(dataPage,"datP",current_dataSet_server_side)#data input page containing 
-  #callModule(scatDis,"scats",current_dataSet_server_side)#scatters display page
   callModule(singleScatPage,"scat",current_dataSet_server_side)# single scatter display page
   callModule(hist, "hist", current_dataSet_server_side)#hist page
   callModule(cleavPage, "cleav", current_dataSet_server_side)#cleav page

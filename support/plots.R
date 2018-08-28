@@ -7,111 +7,10 @@
 
 # -------------------------------------------------------------------
 
-## Function to generate the plotly for interactive scatter: mass by rt, col by P
-
-plot_mass_rt_by_p <- function(df_to_plot,range){
-  
-  checkColExist(df_to_plot$pep$RT, "Missing Column: RT")
-  checkColExist(df_to_plot$pep$Mass, "Missing Column: Mass")
-  checkColExist(df_to_plot$pep$Score, "Missing Column: Score")
-  
-  df_to_plot <- subset(df_to_plot$pep, Score > range[1] & Score < range[2])
-  
-  gg_to_plot <- ggplot(df_to_plot, aes(RT,Mass, colour = Score))+ 
-    geom_count(show.legend=T,alpha = 0.5)+
-    theme_bw()+
-    scale_colour_gradient2(name = "Score", low = "yellow", mid = "aquamarine",
-                           high = "darkmagenta")
-  return(gg_to_plot)
-  
-}
-
-# -------------------------------------------------------------------
-
-## Function to plot Scatter plot of ppm vs m/z 
-
-plot_scatter_ppm_mz <- function(df_to_plot,range){
-  
-  checkColExist(df_to_plot$pep$ppm, "Missing Column: ppm")
-  checkColExist(df_to_plot$pep$m.z, "Missing Column: m.z")
-  checkColExist(df_to_plot$pep$Score, "Missing Column: Score")
-  
-  gg_to_plot <- ggplot(subset(df_to_plot$pep, Score > range[1] & Score < range[2]), aes(ppm,m.z, colour = Score))+ 
-    geom_count(show.legend=T,alpha = 0.5)+
-    theme_bw()+
-    #scale_color_gradient(low = "aquamarine", high = "darkmagenta")
-    
-    scale_colour_gradient2(name = "Score", low = "yellow", mid = "aquamarine",
-                           high = "darkmagenta")
-  
-  return(gg_to_plot)
-  
-}
-
-
-
-# -------------------------------------------------------------------
-
-## Function to plot a Scatter ppm vs m.z with score as colour but decoy&target on different scales
-
-plot_scat_ppm_mz_deocy <- function(df_to_plot,range){
-  
-  checkColExist(df_to_plot$pep$ppm, "Missing Column: ppm")
-  checkColExist(df_to_plot$pep$m.z, "Missing Column: m.z")
-  checkColExist(df_to_plot$pep$Score, "Missing Column: Score")
-  
-  df_to_plot$pep <- subset(df_to_plot$pep, Score > range[1] & Score < range[2])
-  
-  # dummy up data
-  dat1<- subset(df_to_plot$pep,grepl("Decoy",Decoy)) #Decoy entries
-  dat2<- subset(df_to_plot$pep,!grepl("Decoy",Decoy))  #Target entries
-  
-  
-  p <- ggplot() 
-  p <- p + geom_point(data=dat2, aes(x=ppm, y=m.z, color=Score), shape=22, size=3)
-  p <- p + scale_color_gradient(high="plum1", low="darkmagenta",name="Target Score")
-  p <- p +  geom_point(data= dat1, aes(x=ppm, y=m.z, shape=shp, fill=Score), shape=21, size=2,alpha=0.5)
-  p <- p + scale_fill_gradient(high="darkgreen", low="aquamarine",name="Decoy Score") + theme_bw()
-  
-  return(p)
-  
-}
-
-
-
-# -------------------------------------------------------------------
-
-## Function to plot a Scatter RT vs Mass with score as colour but decoy&target on different scales
-
-plot_scat_rt_mass_deocy <- function(df_to_plot,range){
-  
-  checkColExist(df_to_plot$pep$RT, "Missing Column: RT")
-  checkColExist(df_to_plot$pep$Mass, "Missing Column: Mass")
-  checkColExist(df_to_plot$pep$Score, "Missing Column: Score")
-  
-  df_to_plot$pep <- subset(df_to_plot$pep, Score > range[1] & Score < range[2])
-  
-  # dummy up data
-  dat1<- subset(df_to_plot$pep,grepl("Decoy",Decoy)) #Decoy entries
-  dat2<- subset(df_to_plot$pep,!grepl("Decoy",Decoy))  #Target entries
-  
-  
-  p <- ggplot() 
-  p <- p + geom_point(data=dat2, aes(x=RT, y=Mass, color=Score), shape=22, size=3)
-  p <- p + scale_color_gradient(high="plum1", low="darkmagenta",name="Target Score")
-  p <- p +  geom_point(data= dat1, aes(x=RT, y=Mass, shape=shp, fill=Score), shape=21, size=2,alpha=0.5)
-  p <- p + scale_fill_gradient(high="darkgreen", low="aquamarine",name="Decoy Score") + theme_bw()
-  
-  return(p)
-  
-}
-
-# -------------------------------------------------------------------
-
 ## Function to plot scatter with varibles
 
-plotVariableScatter <- function(current_dataSet_server_side,score_range,seperateByDecoy,x_col_id,y_col_id){
-  
+plotVariableScatter <- function(current_dataSet_server_side,score_range,seperateByDecoy,x_col_id,y_col_id,axisScale){
+
   #Subset for the score slider range
   df_to_plot <- subset(current_dataSet_server_side$pep, Score > score_range[1] & Score < score_range[2])
   
@@ -127,6 +26,14 @@ plotVariableScatter <- function(current_dataSet_server_side,score_range,seperate
     gg_to_plot <- gg_to_plot +  geom_point(data= dat1, aes_string(x=x_col_id, y=y_col_id, shape="shp", fill="Score"), shape=21, size=2,alpha=0.5)
     gg_to_plot <- gg_to_plot + scale_fill_gradient(high="darkgreen", low="aquamarine",name="Decoy Score") + theme_bw()
     
+    if("x" %in% axisScale){
+      gg_to_plot <- gg_to_plot + scale_x_continuous(trans='log2') 
+    }
+    
+    if("y" %in% axisScale){
+      gg_to_plot <- gg_to_plot + scale_y_continuous(trans='log2')
+    }
+    
     return(gg_to_plot)
     
   }else{  #if seperate by deocy was false
@@ -135,7 +42,16 @@ plotVariableScatter <- function(current_dataSet_server_side,score_range,seperate
       geom_count(show.legend=T,alpha = 0.5)+
       theme_bw()+
       scale_colour_gradient2(name = "Score", low = "yellow", mid = "aquamarine",
-                             high = "darkmagenta")
+                             high = "darkmagenta")+
+      labs(size="Point Density")
+    
+    if("x" %in% axisScale){
+      gg_to_plot <- gg_to_plot + scale_x_continuous(trans='log2') 
+    }
+    
+    if("y" %in% axisScale){
+      gg_to_plot <- gg_to_plot + scale_y_continuous(trans='log2')
+    }
     
     return(gg_to_plot)
     
@@ -237,39 +153,42 @@ plot_box_clev_by_score <- function(current_dataSet_server_side,decoyToggle){
 
 # -------------------------------------------------------------------
 
-## Function to plot bar chart of peptides with PTMs
+## Function to plot a barplot of PTMs
 
 plot_bar_ptm <- function(current_dataSet_server_side){
-  df_to_plot <- data.frame(current_dataSet_server_side$pep)
-  checkColExist(df_to_plot$PTM, "Missing Column: PTM")
-  df <- df_to_plot %>% count(PTM)
   
-  plot_ly(df, x = ~PTM, y = ~n, type = 'bar',
-          marker = list(color = 'rgb(158,202,225)',
-                        line = list(color = 'rgb(8,48,107)',
-                                    width = 1.5))) %>%
-    layout(xaxis = list(title = "PTM"),
-           yaxis = list(title = "Frequency"))
+  checkColExist(current_dataSet_server_side$mod$spectrumID, "Missing Mod Data")
+  checkColExist(current_dataSet_server_side$mod$name, "Missing Mod Data")
+  
+  barDf <- getModCount(data.frame(current_dataSet_server_side$mod$spectrumID,current_dataSet_server_side$mod$name),nrow(current_dataSet_server_side$pep))
+  
+  
+  
+  gg_to_plot <- ggplot(data=barDf, aes(Modification,Frequency)) +
+    geom_col(fill="blue", col="blue", alpha = .2,width = 0.5)+
+    theme_bw() +
+    labs(title = "Peptides with Modification ",x=" ", y="Count")
+  return(gg_to_plot)
+  
   
 }
 
 
 # -------------------------------------------------------------------
 
-## Function to plot Donut Chart of peptides with PTMs
+## Funcition to plot bar of ptm modification count
 
-plot_donut_ptm <- function(current_dataSet_server_side){
-  df_to_plot <- data.frame(current_dataSet_server_side$pep)
-  checkColExist(df_to_plot$PTM, "Missing Column: PTM")
+plot_bar_ptm_mod_count <- function(current_dataSet_server_side){
+  checkColExist(current_dataSet_server_side$mod$spectrumID, "Missing Mod Data")
+  checkColExist(current_dataSet_server_side$mod$name, "Missing Mod Data")
   
-  df_to_plot %>%
-    group_by(PTM) %>%
-    summarise(count = n()) %>%
-    plot_ly(labels = ~PTM, values = ~count) %>%
-    add_pie(hole = 0.6,
-            insidetextfont = list(color = '#FFFFFF'),
-            marker = list(line = list(color = '#FFFFFF', width = 4)))%>%
-    layout(showlegend = F)
+  plotDf <- getModCountPerPep(data.frame(current_dataSet_server_side$mod$spectrumID,current_dataSet_server_side$mod$name),nrow(current_dataSet_server_side$pep))
+  
+  gg_to_plot <- ggplot(data=plotDf[1:10,], aes(Modifications,Frequency)) +
+    geom_col(fill="blue", col="blue", alpha = .2)+
+    theme_bw() +
+    labs(title = "Number of Mods per Peptide ",x=" ", y="Modifications")
+  return(gg_to_plot)
   
 }
 
@@ -278,19 +197,44 @@ plot_donut_ptm <- function(current_dataSet_server_side){
 
 ## Funcition to plot scatter of score and ppm, coloured by decoy
 
-plot_scat_score_ppm_by_decoy <- function(current_dataSet_server_side){
+plot_scat_score_ppm_by_decoy <- function(current_dataSet_server_side,pointOpacity,pointsToDisplay){
   checkColExist(current_dataSet_server_side$pep$ppm, "Missing Column: ppm")
+  
   df_to_plot <- data.frame(current_dataSet_server_side$pep$ppm,current_dataSet_server_side$pep$Score,
                            current_dataSet_server_side$pep$Decoy)
+  
   colnames(df_to_plot) <- c("ppm","Score","Decoy")
   
-  plot_ly(
-    df_to_plot, x = ~ppm, y = ~Score, type = 'scatter',
-    #text = ~paste("Mass: ", Mass, '<br>Retention Time:', RT, "<br>Scire: ",p),
-    color = ~Decoy,colors = c('indianred',"mediumturquoise"), symbol = ~Decoy, symbols = c('x','o'),
-    marker=list( size=10 , opacity=0.45)
+  if(pointsToDisplay == 2){ #Display only Targets
+    df_to_plot <- subset(df_to_plot,grepl("Target",Decoy))
     
-  )
+    plot_ly(
+      df_to_plot, x = ~ppm, y = ~Score, type = 'scatter',
+      color = ~Decoy, colors = "mediumturquoise", symbol = ~Decoy, symbols = 'o',
+      marker=list( size=10 , opacity=pointOpacity)
+      
+    )
+    
+    
+  }else if (pointsToDisplay == 3){  #Display only Decoys
+    df_to_plot <- subset(df_to_plot,grepl("Decoy",Decoy))
+    
+    plot_ly(
+      df_to_plot, x = ~ppm, y = ~Score, type = 'scatter',
+      color = ~Decoy, colors = 'indianred', symbol = ~Decoy, symbols ='x',
+      marker=list( size=10 , opacity=pointOpacity)
+      
+    )
+    
+  }else{  #Display all points
+    plot_ly(
+      df_to_plot, x = ~ppm, y = ~Score, type = 'scatter',
+      color = ~Decoy,colors = c('indianred',"mediumturquoise"), symbol = ~Decoy, symbols = c('x','o'),
+      marker=list( size=10 , opacity=pointOpacity)
+      
+    )
+  }
+  
 }
 
 
@@ -347,20 +291,24 @@ plot_box_marg_score <- function(current_dataSet_server_side){
 
 ## Function plot histogram of score, with deocy vs target
 
-plot_hist_score <- function(current_dataSet_server_side){
+plot_hist_score <- function(current_dataSet_server_side,fdrPercent){
   
   checkColExist(current_dataSet_server_side$pep$Decoy, "Missing Column: Decoy")
   df_to_plot <- data.frame(current_dataSet_server_side$pep$Decoy,current_dataSet_server_side$pep$Score)
   names(df_to_plot)[names(df_to_plot)=="current_dataSet_server_side.pep.Decoy"] <- "Type"
   names(df_to_plot)[names(df_to_plot)=="current_dataSet_server_side.pep.Score"] <- "Score"
   
+  xInterceptLine <- current_dataSet_server_side$pep$Score[getIntercept(current_dataSet_server_side$pep,fdrPercent)]
+  
   plot <- ggplot(df_to_plot, aes(Score)) +
     geom_histogram(aes(fill = Type),binwidth=2,col="white") +
     theme_bw() +
-    labs(title="Distrubution of peptides", y="Count", x="Score") +
+    labs(title="Distribution of peptides", y="Count", x="Score") +
     scale_fill_manual(name="Peptide", 
                       values = c("Target"='mediumturquoise', 
-                                 "Decoy"='indianred'))
+                                 "Decoy"='indianred'))+ 
+    geom_vline(xintercept = xInterceptLine, linetype="dotted")
+  
   return(plot)
 }
 
@@ -369,12 +317,16 @@ plot_hist_score <- function(current_dataSet_server_side){
 
 ## Function to plot FDR curve
 
-plot_FDR_curve <- function(current_dataSet_server_side){
+plot_FDR_curve <- function(current_dataSet_server_side,fdrPercent){
   validate(
     need(!is.null(current_dataSet_server_side$pep), "No data set uploaded ")
   )
+  
+  
   df <- current_dataSet_server_side$pep
-  plot_ly(df, x = ~TP, y = ~FDR, type = 'scatter', mode = 'lines',line = list(color = 'rgb(205, 12, 24)', width = 4)) %>% 
+  
+  plot_ly(df, x = ~TP, y = ~FDR, mode = 'lines',line = list(color = 'rgb(205, 12, 24)', width = 4)) %>%
+    layout(shapes = list(vline(getIntercept(df,fdrPercent)),hline(fdrPercent/100))) %>% 
     layout(xaxis = list(title = "Num of peptide spectrum matchings"),
            yaxis = list(range = c(0, .05)))
   
@@ -398,3 +350,33 @@ plot_Q_curve <- function(current_dataSet_server_side){
 
 
 # -------------------------------------------------------------------
+
+## Plotly Pie chart of Identified at Set FDR
+
+plotIdentFdr <- function(current_dataSet_server_side,fdrPercent){
+  
+  validate(
+    need(!is.null(current_dataSet_server_side$pep), "No data set uploaded ")
+  )
+  
+  count <- getIntercept(current_dataSet_server_side$pep,fdrPercent)
+  
+  df <- data.frame(hits=c("below", "above"), 
+                   columnofvalues=c(count,nrow(current_dataSet_server_side$pep)-count))
+  
+  colors <- c('mediumturquoise',  'indianred')
+  
+  plot_ly(df, labels = ~hits, values = ~columnofvalues, type = 'pie',
+          textposition = 'inside',
+          textinfo = 'label+percent',
+          insidetextfont = list(color = '#FFFFFF'),
+          hoverinfo = 'text',
+          text = ~paste('Hits: ', columnofvalues),
+          marker = list(colors = colors,
+                        line = list(color = '#FFFFFF', width = 1)),
+          showlegend = FALSE)
+  
+  
+}
+
+# -------------------------------------------------------------------{}
