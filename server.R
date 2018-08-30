@@ -5,27 +5,8 @@
 ## Author: Ashleigh Myall
 ##################################################
 
-library(ggplot2)
-library(shinydashboard)
-library(shiny)
-library(plotly)
-library(DT)
-library(stringr)
-library(mzR)
-library(dplyr)
-library(shinyalert)
-library(leaflet)
-library(splitstackshape)
-library(readr)
-
-source('support/support_functions.R')
-source('support/plots.R')
-source('support/modules.R')
-
 server <- function(input, output, session) {
   options(shiny.maxRequestSize=200*1024^2) # Increase max upload six to 200mb
-  
-  # -------------------------------------------------------------------
   
   ## Calling modules
   callModule(homePage,"mainPage")
@@ -36,11 +17,5 @@ server <- function(input, output, session) {
   callModule(ptmPage,"ptmPage",current_dataSet_server_side)#PTM page
   callModule(decoyDis, "dec", current_dataSet_server_side)#decoy display page
   callModule(scorePageDisplay,"scoreDis",current_dataSet_server_side)# score display page
-  
-  
-  # -------------------------------------------------------------------
-  
-  
-  
   
 }

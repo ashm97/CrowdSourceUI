@@ -44,25 +44,23 @@ homePage <- function(input, output, session){
       addTiles() %>%
       addMarkers(lng = ~Longitude,
                  lat = ~Latitude,
-                 popup = paste("Results", df$Results)) %>%
+                 popup = paste("Results: ", df$Results)) %>%
       setView(lng = -3.174, lat = 54.156, zoom = 6) %>%
       addProviderTiles(providers$CartoDB.Positron)
     m
   })
   
   output$plot <- renderPlot({ # Placeholder bar plot for server stats
-    dat <- data.frame(
-      time = factor(c("Daily","Weekly"), levels=c("Daily","Weekly")),
-      total_bill = c(5, 27)
-    )
-    
-    ggplot(data=dat, aes(x=time, y=total_bill)) +
+    df <- data()
+    plotDf <- data.frame("Type" = c("Requests","Results"),"Num" = c(sum(df$Requests),sum(df$Results)))
+    ggplot(plotDf , aes(Type, Num)) +
       geom_bar(stat="identity")
   })
   
   output$txtout <- renderText({ #Output text stats of server info
     df <- data()
-    paste("Total Processes per day:",sum(df$Results),"\n","Total Users per day: ",nrow(df),"\n","Top user of the day: ",df[which.max(df$Results),]$Users)
+    paste("Total Processes per day:",sum(df$Results),"\n","Total Users per day: ",nrow(df),
+          "\n","Top user of the day: ",df[which.max(df$Results),]$Users,"\n","Requests to results: : ",round(100*sum(df$Results)/sum(df$Requests),digits = 2),"%")
   })
   
 }
@@ -88,8 +86,9 @@ dataPageInput <- function(id) {
                            accept = c(".csv",
                                       ".mzid",
                                       ".gz")),
-                 
-                 helpText("Accepted formats are : csv, mzid and gz. To be processed properly the file should contain a column labeled Peptide or Sequence.")
+                 helpText("Accepted formats are : csv, mzid and gz. 
+                          To be processed properly the file should contain a column labeled Peptide or Sequence."),
+                 downloadButton(ns('downloadData'), 'Download')
              ),
              
              box(width = 12, title = "Scoring Column Selector",
@@ -131,13 +130,12 @@ dataPage <- function(input, output, session,current_dataSet_server_side) {
   
   # -------------------------------------------------------------------
   
-  # Create the conductor for uploading a dataset
+  ## Create the conductor for uploading a dataset
   current_dataSet <- reactive({
     get_current_dataSet(input$file1,passedUrlData(),queryLen())#Check the input type is valid - check if all checks are false
   })
   
-  
-  # Create a reactive conductor to take input from the score col selector and update the current data frame with it
+  ## Create a reactive conductor to take input from the score col selector and update the current data frame with it
   current_dataSet_server_side <- reactive({
     #return the server side version of the df with the stats calculated
     if(!is.null(current_dataSet()$pep)){
@@ -153,61 +151,30 @@ dataPage <- function(input, output, session,current_dataSet_server_side) {
   ### Server Output section
   
   ## Drop down menu for scoring column choice
-  
   output$choose_columns <- renderUI({
     # If missing input, return to avoid error later in function
     if(is.null(current_dataSet()$pep)){
       validate(need(FALSE, "No data set uploaded "))
       return()
     }
-      
-    
-    colnames <- names(current_dataSet()$pep) # Get the data set with the appropriate name
-    
-    #get the selected option
-    if("mzid.Scoring" %in% colnames){
-      col_mat <- grepl("mzid.Scoring",colnames)
-      selected_default <- colnames[which(col_mat)]
-    }else if("X.10lgP" %in% colnames){
-      col_mat <- grepl("X.10lgP",colnames)
-      selected_default <- colnames[which(col_mat)]
-    }else if("scr.PEAKS.peptideScore" %in% colnames){
-      col_mat <- grepl("scr.PEAKS.peptideScore",colnames)
-      selected_default <- colnames[which(col_mat)]
-    }else if(grep("Score", colnames)){
-      col_mat <- grepl("Score",colnames)
-      selected_default_vec <- colnames[which(col_mat)]
-      selected_default <- selected_default_vec[1]
-    }else{
-      selected_default <- NULL
-    }
-    
-    selectInput(ns("column"), "Choose column", as.list(colnames),selected = selected_default) #Create the drop down list
+    selectInput(ns("column"), "Choose column", as.list(colnames(current_dataSet()$pep)),selected = getInitScoreCol(current_dataSet()$pep)) #Create the drop down list
   })
   
   
   ## Table with turn off filtering (no searching boxes)
-  
   output$ex <- DT::renderDataTable(
-    if(is.null(current_dataSet()$pep)){
-      validate(need(FALSE, "No data set uploaded "))
-    }else{
-      DT::datatable(current_dataSet()$pep, options = list(searching = FALSE))
-    }
-
+    if(is.null(current_dataSet()$pep)){validate(need(FALSE, "No data set uploaded "))}
+    else{DT::datatable(current_dataSet()$pep, options = list(searching = FALSE))}
   )
   
   # -------------------------------------------------------------------
 
-  ### Validation Section for User selection
+  ### Validation Section for User selections
   
   ## Give user validation of score column selection
-  observeEvent(input$column, {
-    #warn user of column non numeric
-    if(checkScoreColNum(current_dataSet()$pep,input$column)){
-      shinyalert(title = "Warning!",text = "Score must be a numeric value", type = "warning")
-    }
-    showNotification("Score Column Set.",type = "message")
+  observeEvent(input$column, {  #warn user of column non numeric
+    ifelse(checkScoreColNum(current_dataSet()$pep,input$column),shinyalert(title = "Warning!",text = "Score must be a numeric value",
+                                                                           type = "warning"),showNotification("Score Column Set.",type = "message"))
   })
   
   ## Give user validation of Decoy Term selection
@@ -215,25 +182,45 @@ dataPage <- function(input, output, session,current_dataSet_server_side) {
   
   # -------------------------------------------------------------------
   
-  ## Query String Parsing Section
+  ### Query String Parsing Section
   
-  # Parse the GET query string
+  ## Parse the GET query string
   output$queryText <- renderText({passedUrlData()})
   
-  #reactive conductor to set the file pathway for 
+  ## reactive conductor to set the file pathway for 
   passedUrlData <- reactive({
     query <- session$clientData$url_search
     query <- returnDataUrl(query)
-    # Return a string of data
-    paste(query)
+    paste(query) # Return a string of data
   })
   
-  queryLen <- reactive(({
-    query <- parseQueryString(session$clientData$url_search)
-    paste(query)
-  }))
+  queryLen <- reactive(({parseQueryString(session$clientData$url_search)}))
   
+  # -------------------------------------------------------------------
   
+  # downloadHandler() takes two arguments, both functions.
+  # The content function is passed a filename as an argument, and
+  #   it should write out data to that filename.
+  output$downloadData <- downloadHandler(
+    
+    # This function returns a string which tells the client
+    # browser what name to use when saving the file.
+    filename = function() {
+      paste(tools::file_path_sans_ext(input$file1), "csv", sep = ".")
+    },
+    
+    # This function should write data to a file given to it by
+    # the argument 'file' if the dataSet is not null
+    content = function(file) {
+      # Write to a file specified by the 'file' argument
+      write.table(current_dataSet()$pep, file, sep = ",",
+                  row.names = FALSE)
+    }
+  )
+  
+  # -------------------------------------------------------------------
+  
+  ### Final return of the server DF for other modules to access
   return(current_dataSet_server_side)
 }
 
@@ -593,12 +580,13 @@ ptmPageInput <- function(id){
              box(width = 6,
                  plotlyPlotInput(ns("ptmModCountBar"))
              ),
-             box(width = 12,
+             box(width = 9,
                  status = "info", solidHeader = TRUE,
                  collapsible = TRUE,
                  h5("The peptides with modifications bar chart is showing the total count of peptides with that associated modification. (Note: peptides can contain multiple modifications of the same type and/or combinations). 
                     The second plot is a bar chart, displaying how many peptides contain x modifications (Note: x ranged fixed at max 9 modifications for visualisation).")
-                 ))
+                 )
+             )
     )
   )
 }

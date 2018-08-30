@@ -44,6 +44,10 @@ score_tab <- tabItem(tabName = "score",
 )
 
 info_tab <- tabItem(tabName = "info",
-                    h2("Information Page"),
-                    box(width = 12, h4("Placeholder text is the label for possible content in a text box. It can normally be found when there are prompts to fill out a form. It's the hint that tells you 'Last name' or the format with which to enter your birthdate or phone number. Placeholder text typically exists as a hint to fill in actual text."))
+                    box(width = 8, title = "Background",
+                        h4("The crowdsourcing search engine project has been to develop a distributed computing network that performs peptide identification by scoring MS/MS spectra against peptides derived from a protein sequence database."),
+                        h4("Developed by Andy Jones and Andrew Collins the project has hoped to share the load and compute time of large searches amongst many nodes, while maintaining similar performance to other search engines (for example: MS Amanda and MS-GF+)."),
+                        h4("Created to aid the search engine, this shiny web interface allows for easy visualising of the results, with a high degree of interactivity for data exploration. An additional feature beyond the crowdsourcing project requirements, has been the ability to upload results from a wide range of search engines. Compatibility has been a focus; both mzIdentML as well as CSV peptide search results can be uploaded and interpreted.")
+                        ),
+                    box(width=4,title = "Profiles")
                     )

@@ -38,7 +38,6 @@ getStatsDfExistingDecoy <- function(df_FP_only){
   
   df_FP_only <- data.frame(df_FP_only)
   colnames(df_FP_only) <- c("isDecoy")
-  
   df_FP_only <- transform(df_FP_only, FP = ifelse(isDecoy,1,0))
   df_FP_only <- transform(df_FP_only, Decoy = ifelse(isDecoy,"Decoy","Target"))
   df_FP_only$isDecoy <- NULL
@@ -110,8 +109,6 @@ get_current_dataSet <- function(in_File,passedUrlData,queryLen){
       if(grepl("csv",in_File$datapath)){
         peptideDf <- handleFileCsv(in_File)
         returnList <- list("pep" = peptideDf, "mod" = getModCsv(peptideDf))
-        print(head(returnList$pep))
-        print(head(returnList$mod))
         return(returnList)
         
       }else if(grepl("mzid",in_File$datapath)){ #IF .mzid
@@ -143,9 +140,11 @@ get_current_dataSet <- function(in_File,passedUrlData,queryLen){
 
 get_dataSet_withScore <- function(df_to_use,selected_col){
   try(df_to_use <- transform(df_to_use, z = round(Mass / m.z))) #Create a new column of Charge
+  try(df_to_use <- transform(df_to_use, Mass = round(z * m.z))) #Create a new column of Charge
   try(df_to_use <- transform(df_to_use, ppm = round(ppm,digits = 4))) #Round the ppm col to 4dp
   colnames(df_to_use)[colnames(df_to_use)==selected_col] <- "Score" #set the score column
   df_to_use <- df_to_use[rev(order(df_to_use$Score)),] #order by score
+  df_to_use$counted_cleavages <- as.factor(get_pep_cleav(df_to_use$Peptide)) # Count the cleavages and add to the data set as a new column
   return(df_to_use)
 }
 
@@ -180,13 +179,10 @@ handleFileMzid <- function(inputFile){
   
   #Format the cols for the app
   colnames(mzid_df)[colnames(mzid_df)=="ScoreFilterCol"] <- colnames(score(mzid)[2])
-  colnames(mzid_df)[colnames(mzid_df)=="DatabaseAccess"] <- "Accession"
-  colnames(mzid_df)[colnames(mzid_df)=="sequence"] <- "Peptide"
-  colnames(mzid_df)[colnames(mzid_df)=="experimentalMassToCharge"] <- "m.z"
+  mzid_df <- getFormtedColDf(mzid_df)
   
   # Add extra columns
   mzid_df <- transform(mzid_df, ppm = ((m.z - calculatedMassToCharge)*1000000)/m.z) # Add a col for ppm
-  mzid_df$counted_cleavages <- as.factor(get_pep_cleav(mzid_df$Peptide))
   
   return(mzid_df)
 }
@@ -213,75 +209,58 @@ getMzidMod <- function(inputFile){
 
 handleFileCsv <- function(in_File){
   
-  
-  
-  
   uploaded_df <- read.csv(in_File$datapath, header=TRUE)
   
-  if(NCOL(uploaded_df) >= 5){
+  #If the df does not contains more than 5 rows than we assume the wrong format and proceed to check for tab del with skip=0 & skip =1
+  if(!NCOL(uploaded_df) >= 5){
+    uploaded_df <- suppressWarnings(read_delim(in_File$datapath, "\t", #This is especially for MSAmanda
+                              escape_double = FALSE, trim_ws = TRUE, 
+                              skip = 0))
     
-    #Attempt to filter by X.10lgP if not then check for another colname containing "Score" in it names
-    uploaded_df $Peptide = toupper(uploaded_df $Peptide) #upper case the enitre col
-    
-    if("X.10lgP" %in% colnames(uploaded_df)){ #This is the general case for crowdsource data (the score col)
-      uploaded_df <- uploaded_df %>% group_by(Peptide) %>% slice(which.max(X.10lgP))
+    if(!NCOL(uploaded_df) >= 5){
+      uploaded_df <- suppressWarnings(read_delim(in_File$datapath, "\t", 
+                                escape_double = FALSE, trim_ws = TRUE, 
+                                skip = 1))
       
-    }else if(grep("Score", colnames(uploaded_df))){
-      ## R makes this problamatic as it's difficutl to select a colname by a variable
-      # Soltuion: set variable column to fixed col name then return it to original name later
-      colnames <- colnames(uploaded_df)
-      col_mat <- grepl("Score",colnames)
-      selected_default <- colnames[which(col_mat)]
-      colnames(uploaded_df)[colnames(uploaded_df)== selected_default[1] ] <- "ScoreFilterCol"
-      uploaded_df <- uploaded_df %>% group_by(Peptide) %>% slice(which.max(ScoreFilterCol))
-      colnames(uploaded_df)[colnames(uploaded_df)=="ScoreFilterCol"] <- selected_default[1]
-      
-    }else{
-      #no match found, so rather than filter at random we choose to leave
+      if(!NCOL(uploaded_df) >= 5){
+        shinyalert(title = "Warning!",text = "Could not read in CSV. Please ensure comma or tab delimited", type = "warning")
+        return(NULL) #could read in CSV
+      }
     }
-    uploaded_df$counted_cleavages <- as.factor(get_pep_cleav(uploaded_df$Peptide)) # Count the cleavages and add to the data set as a new column
-    
-    
-    
-    
-  }else{  #not enough cols, assume the upload was wrong
-    
-    uploaded_df <- read_delim(in_File$datapath, "\t", 
-               escape_double = FALSE, trim_ws = TRUE, 
-               skip = 1)
-    
-    #Rename cols
-    try(colnames(uploaded_df)[colnames(uploaded_df)== "Sequence" ] <- "Peptide")
-    try(colnames(uploaded_df)[colnames(uploaded_df)== "Protein Accessions" ] <- "Accession")
-    try(colnames(uploaded_df)[colnames(uploaded_df)== "Modifications" ] <- "PTM")
-    try(colnames(uploaded_df)[colnames(uploaded_df)== "Charge" ] <- "z")
-    
-    #Attempt to filter by X.10lgP if not then check for another colname containing "Score" in it names
-    uploaded_df$Peptide = toupper(uploaded_df$Peptide) #upper case the enitre col
-    
-    uploaded_df <- filter(uploaded_df , Rank == 1) #subset only rank 1
-    
-    
-    if("X.10lgP" %in% colnames(uploaded_df)){ #This is the general case for crowdsource data (the score col)
-      uploaded_df <- uploaded_df %>% group_by(Peptide) %>% slice(which.max(X.10lgP))
-      
-    }else if(grep("Score", colnames(uploaded_df))){
-      ## R makes this problamatic as it's difficutl to select a colname by a variable
-      # Soltuion: set variable column to fixed col name then return it to original name later
-      colnames <- colnames(uploaded_df)
-      col_mat <- grepl("Score",colnames)
-      selected_default <- colnames[which(col_mat)]
-      colnames(uploaded_df)[colnames(uploaded_df)== selected_default[1] ] <- "ScoreFilterCol"
-      uploaded_df <- uploaded_df %>% group_by(Peptide) %>% slice(which.max(ScoreFilterCol))
-      colnames(uploaded_df)[colnames(uploaded_df)=="ScoreFilterCol"] <- selected_default[1]
-      
-    }else{
-      #no match found, so rather than filter at random we choose to leave
-    }
-    uploaded_df$counted_cleavages <- as.factor(get_pep_cleav(uploaded_df$Peptide)) # Count the cleavages and add to the data set as a new column
   }
   
+  uploaded_df <- getFormtedColDf(uploaded_df) #Rename cols
+  uploaded_df$Peptide = toupper(uploaded_df$Peptide) #upper case the enitre col
+  try(uploaded_df <- filter(uploaded_df , Rank == 1),silent = TRUE) #subset only rank 1
+  try(uploaded_df <- filter(uploaded_df , rank == 1),silent = TRUE)
+  uploaded_df <- getFilteredUniqueDfPep(uploaded_df) #filter for best scoring peptide
   return(uploaded_df)
+}
+
+
+# -------------------------------------------------------------------
+
+### Fucntion to filter for unique peptides
+
+# Filter for best scoring peptide sequence by score, if cannot get Score col then no filtering is done.
+
+getFilteredUniqueDfPep <- function(df){
+  if("X.10lgP" %in% colnames(df)){ #This is the general case for crowdsource data (the score col)
+    df <- df %>% group_by(Peptide) %>% slice(which.max(X.10lgP))
+  }else if(grep("Score", colnames(df))){
+    ## R makes this problamatic as it's difficutl to select a colname by a variable
+    # Soltuion: set variable column to fixed col name then return it to original name later
+    colnames <- colnames(df)
+    col_mat <- grepl("Score",colnames)
+    selected_default <- colnames[which(col_mat)]
+    colnames(df)[colnames(df)== selected_default[1] ] <- "ScoreFilterCol"
+    df <- df %>% group_by(Peptide) %>% slice(which.max(ScoreFilterCol))
+    colnames(df)[colnames(df)=="ScoreFilterCol"] <- selected_default[1]
+    
+  }else{
+    #no match found, so rather than filter at random we choose to leave
+  }
+  return(df)
 }
 
 
@@ -319,10 +298,7 @@ validate_file <- function(inputFile){
 ### function to check if score the score column is a numeric
 
 checkScoreColNum <- function(df_to_use,selected_col){
-  
-  #set the score column
-  colnames(df_to_use)[colnames(df_to_use)==selected_col] <- "Check"
-  
+  colnames(df_to_use)[colnames(df_to_use)==selected_col] <- "Check" #set the score column
   return(!is.numeric(df_to_use$Check))
 }
 
@@ -333,7 +309,7 @@ checkScoreColNum <- function(df_to_use,selected_col){
 
 returnDataUrl <- function(string){
   string <- sub("[?]","",string)
-  string <- sub("data=","",string)
+  string <- sub("ID=","",string)
   return(string)
 }
 
@@ -385,6 +361,7 @@ getColNames <- function(df){
   colNames <- colNames[1:(length(colNames)-6)] # remove the last 6 cols which are ffrom the stats calc
   return(colNames)
 }
+
 
 # -------------------------------------------------------------------
 
@@ -467,3 +444,68 @@ getModCountPerPep <- function(modificationDf,numOfPep){
   colnames(returnDf) <- c("Modifications", "Frequency")
   return(returnDf)
 }
+
+
+# -------------------------------------------------------------------
+
+### Function to take a dataframe (input file) and rename the columns in a correct format
+
+# It became problatic to take files with differeing column names so here is a function to sweep through ranges
+# of potential column names and format that in an acceptable way
+
+getFormtedColDf <- function(df){
+  
+  #General .mzid names
+  try(colnames(df)[colnames(df)=="DatabaseAccess"] <- "Accession")
+  try(colnames(df)[colnames(df)=="sequence"] <- "Peptide")
+  try(colnames(df)[colnames(df)=="experimentalMassToCharge"] <- "m.z")
+  try(colnames(df)[colnames(df)=="chargeState"] <- "z")
+  
+  #MS Amanda renames
+  try(colnames(df)[colnames(df)== "Sequence" ] <- "Peptide")
+  try(colnames(df)[colnames(df)== "Protein Accessions" ] <- "Accession")
+  try(colnames(df)[colnames(df)== "Modifications" ] <- "PTM")
+  try(colnames(df)[colnames(df)== "Charge" ] <- "z")
+  
+  return(df)
+}
+
+
+# -------------------------------------------------------------------
+
+### Function to return column
+
+# Checks the columns for which should be chosen as the intial scoring column
+# works from known commonly used score columns present in a range of file uploads
+
+getInitScoreCol <- function(df){
+  colnames <- names(df) # Get the data set with the appropriate name
+  
+  #get the selected option
+  if("mzid.Scoring" %in% colnames){
+    col_mat <- grepl("mzid.Scoring",colnames)
+    selected_default <- colnames[which(col_mat)]
+  }else if("X.10lgP" %in% colnames){
+    col_mat <- grepl("X.10lgP",colnames)
+    selected_default <- colnames[which(col_mat)]
+  }else if("scr.PEAKS.peptideScore" %in% colnames){
+    col_mat <- grepl("scr.PEAKS.peptideScore",colnames)
+    selected_default <- colnames[which(col_mat)]
+  }else if(grep("Score", colnames)){
+    col_mat <- grepl("Score",colnames)
+    selected_default_vec <- colnames[which(col_mat)]
+    selected_default <- selected_default_vec[1]
+  }else{
+    selected_default <- NULL
+  }
+  
+  return(selected_default)
+}
+
+
+
+
+
+
+
+
