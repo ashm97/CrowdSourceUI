@@ -213,14 +213,20 @@ handleFileCsv <- function(in_File){
   
   #If the df does not contains more than 5 rows than we assume the wrong format and proceed to check for tab del with skip=0 & skip =1
   if(!NCOL(uploaded_df) >= 5){
-    uploaded_df <- suppressWarnings(read_delim(in_File$datapath, "\t", #This is especially for MSAmanda
-                              escape_double = FALSE, trim_ws = TRUE, 
-                              skip = 0))
+    tryCatch({
+        uploaded_df <- suppressWarnings(read_delim(in_File$datapath, "\t", #This is especially for MSAmanda
+                                                   escape_double = FALSE, trim_ws = TRUE, 
+                                                   skip = 0))
+      },error = function(e) {stop(safeError(e))})# return a safeError if a parsing error occurs
+    
     
     if(!NCOL(uploaded_df) >= 5){
-      uploaded_df <- suppressWarnings(read_delim(in_File$datapath, "\t", 
-                                escape_double = FALSE, trim_ws = TRUE, 
-                                skip = 1))
+      tryCatch({
+        uploaded_df <- suppressWarnings(read_delim(in_File$datapath, "\t", 
+                                                   escape_double = FALSE, trim_ws = TRUE, 
+                                                   skip = 1))
+      },error = function(e) {stop(safeError(e))})# return a safeError if a parsing error occurs
+      
       
       if(!NCOL(uploaded_df) >= 5){
         shinyalert(title = "Warning!",text = "Could not read in CSV. Please ensure comma or tab delimited", type = "warning")
@@ -309,8 +315,19 @@ checkScoreColNum <- function(df_to_use,selected_col){
 
 returnDataUrl <- function(string){
   string <- sub("[?]","",string)
-  string <- sub("ID=","",string)
-  return(string)
+  string <- sub("id=","",string)
+  return(paste("http://pgb.liv.ac.uk/~andrew/crowdsource-server/src/public_html/results",string,"psm.csv",sep = "/"))
+}
+
+
+# -------------------------------------------------------------------
+
+### Function to return the url for Server Data csv
+
+returnServerDataCsvUrl <- function(string){
+  string <- sub("[?]","",string)
+  string <- sub("id=","",string)
+  return(paste("http://pgb.liv.ac.uk/~andrew/crowdsource-server/src/public_html/results",string,"locations.csv",sep = "/"))
 }
 
 
@@ -384,9 +401,8 @@ hline <- function(y = 0, color = "grey") {
 # and the input of FDR percentage
 
 getIntercept <- function(df,fdr){
-  intercepDF <- subset(df, FDR > 0) #no zero interpolation
-  xCord <- fdr/100
-  interCep <- approx(x = as.numeric(intercepDF$FDR), y = as.numeric(intercepDF$TP), xout = xCord)
+  intercepDF <- subset(df, Q.val > 0) #no zero interpolation
+  interCep <- approx(x = as.numeric(intercepDF$Q.val), y = as.numeric(intercepDF$TP), xout = fdr/100)
   return(round(interCep$y))
 }
 

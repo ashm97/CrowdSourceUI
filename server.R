@@ -5,8 +5,9 @@
 ## Author: Ashleigh Myall
 ##################################################
 
+# --- Main Server Function
 server <- function(input, output, session) {
-  options(shiny.maxRequestSize=200*1024^2) # Increase max upload six to 200mb
+  options(shiny.maxRequestSize=400*1024^2) # Increase max upload six to 200mb
   
   ## Calling modules
   callModule(homePage,"mainPage")

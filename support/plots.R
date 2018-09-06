@@ -26,6 +26,7 @@ plotVariableScatter <- function(current_dataSet_server_side,score_range,seperate
     gg_to_plot <- gg_to_plot +  geom_point(data= dat1, aes_string(x=x_col_id, y=y_col_id, shape="shp", fill="Score"), shape=21, size=2,alpha=0.5)
     gg_to_plot <- gg_to_plot + scale_fill_gradient(high="darkgreen", low="aquamarine",name="Decoy Score") + theme_bw()
     
+    # change the axis linear/log from the Query Builder
     if("x" %in% axisScale){
       gg_to_plot <- gg_to_plot + scale_x_continuous(trans='log2') 
     }
@@ -162,8 +163,6 @@ plot_bar_ptm <- function(current_dataSet_server_side){
   
   barDf <- getModCount(data.frame(current_dataSet_server_side$mod$spectrumID,current_dataSet_server_side$mod$name),nrow(current_dataSet_server_side$pep))
   
-  
-  
   gg_to_plot <- ggplot(data=barDf, aes(Modification,Frequency)) +
     geom_col(fill="blue", col="blue", alpha = .2,width = 0.5)+
     theme_bw() +
@@ -214,7 +213,6 @@ plot_scat_score_ppm_by_decoy <- function(current_dataSet_server_side,pointOpacit
       marker=list( size=10 , opacity=pointOpacity)
       
     )
-    
     
   }else if (pointsToDisplay == 3){  #Display only Decoys
     df_to_plot <- subset(df_to_plot,grepl("Decoy",Decoy))
@@ -325,8 +323,8 @@ plot_FDR_curve <- function(current_dataSet_server_side,fdrPercent){
   
   df <- current_dataSet_server_side$pep
   
-  plot_ly(df, x = ~TP, y = ~FDR, mode = 'lines',line = list(color = 'rgb(205, 12, 24)', width = 4)) %>%
-    layout(shapes = list(vline(getIntercept(df,fdrPercent)),hline(fdrPercent/100))) %>% 
+  plot_ly(df, x = ~TP, y = ~FDR, mode = 'lines', type = "scatter", line = list(color = 'rgb(205, 12, 24)', width = 4)) %>%
+    layout(shapes = list(vline(getIntercept(df,fdrPercent)))) %>% 
     layout(xaxis = list(title = "Num of peptide spectrum matchings"),
            yaxis = list(range = c(0, .05)))
   
@@ -337,12 +335,16 @@ plot_FDR_curve <- function(current_dataSet_server_side,fdrPercent){
 
 ## Function to plot Q curve
 
-plot_Q_curve <- function(current_dataSet_server_side){
+plot_Q_curve <- function(current_dataSet_server_side,fdrPercent){
   validate(
     need(!is.null(current_dataSet_server_side$pep), "No data set uploaded ")
   )
+  
+  xInterceptLine <- current_dataSet_server_side$pep$Score[getIntercept(current_dataSet_server_side$pep,fdrPercent)]
+  
   df <- current_dataSet_server_side$pep
-  plot_ly(df, x = ~Score, y = ~Q.val, type = 'scatter', mode = 'lines',line = list(color = 'rgb(205, 12, 24)', width = 4)) %>% 
+  plot_ly(df, x = ~Score, y = ~Q.val, type = "scatter" ,mode = 'lines',line = list(color = 'rgb(205, 12, 24)', width = 4)) %>% 
+    layout(shapes = list(vline(xInterceptLine))) %>% 
     layout(xaxis = list(title = "Score"),
            yaxis = list(range = c(0, .05)))
   

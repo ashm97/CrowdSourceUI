@@ -5,44 +5,15 @@
 ## Author: Ashleigh Myall
 ##################################################
 
-# Main tab
-main_tab <- tabItem(tabNam = "main",
-                    homePageInput("mainPage")
-                    )
-
-# Second tab 'Data' content
-data_tab <- tabItem(tabName = "data",
-                    dataPageInput("datP")
-                    
-)
-
-# Scatter tab
-scatter_tab <- tabItem(tabName = "scatter",
-                       singleScatPageInput("scat")
-)
-
-# Hist tab
-histograms_tab <- tabItem(tabName = "histograms",
-                          histInput("hist")
-                          
-)
-
-cleavages_tab <- tabItem(tabName = "cleavages",
-                         cleavPageInput("cleav")
-)
-
-ptm_tab <- tabItem(tabName = "ptm",
-                   ptmPageInput("ptmPage")
-)
-
-decoy_tab <- tabItem(tabName = "decoy",
-                     decoyDisInput("dec")
-)
-
-score_tab <- tabItem(tabName = "score",
-                     scorePageDisplayInput("scoreDis")
-)
-
+# --- List of all Tabs
+main_tab <- tabItem(tabNam = "main",homePageInput("mainPage"))
+data_tab <- tabItem(tabName = "data",dataPageInput("datP"))
+scatter_tab <- tabItem(tabName = "scatter",singleScatPageInput("scat"))
+histograms_tab <- tabItem(tabName = "histograms",histInput("hist"))
+cleavages_tab <- tabItem(tabName = "cleavages",cleavPageInput("cleav"))
+ptm_tab <- tabItem(tabName = "ptm",ptmPageInput("ptmPage"))
+decoy_tab <- tabItem(tabName = "decoy",decoyDisInput("dec"))
+score_tab <- tabItem(tabName = "score",scorePageDisplayInput("scoreDis"))
 info_tab <- tabItem(tabName = "info",
                     box(width = 8, title = "Background",
                         h4("The crowdsourcing search engine project has been to develop a distributed computing network that performs peptide identification by scoring MS/MS spectra against peptides derived from a protein sequence database."),

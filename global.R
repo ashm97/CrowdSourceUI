@@ -1,13 +1,13 @@
 ##################################################
 ## Project: Omics Shiny Search Results Application
 ## Script purpose: Global Enviroment
-## Date: 28.08.2018
+## Date: 03.09.2018
 ## Author: Ashleigh Myall
 ##################################################
 
 library(ggplot2)
-library(shinydashboard)
 library(shiny)
+library(shinydashboard)
 library(plotly)
 library(DT)
 library(stringr)

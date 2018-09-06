@@ -18,15 +18,16 @@ homePageInput <- function(id) {
   ns <- NS(id)
   
   tagList(
-    leafletOutput(ns("mymap"), height = 700),
-    # Shiny versions prior to 0.11 should use class = "modal" instead.
-    absolutePanel(id = "controls", class = "panel panel-default", fixed = TRUE,
-                  draggable = TRUE, top = 60, left = "auto", right = 20, bottom = "auto",
-                  width = 330, height = "auto",
-                  
-                  h3("Server Statistics"),
-                  plotOutput(ns("plot")),
-                  verbatimTextOutput(ns("txtout"))
+    fluidRow(column(width = 12,box(width = 12, leafletOutput(ns("mymap"), height = 500))),
+             column(width = 8,box(title= "Top Users by location",width = 12,
+                                  tabPanel('No filtering',style = 'overflow-x: scroll',
+                                           DT::dataTableOutput(ns('ex'))))),
+             column(width = 4,
+                    box(width = 12,
+                        plotOutput(ns("plot")),
+                        verbatimTextOutput(ns("txtout"))
+                        )
+                    )
     )
   )
 }
@@ -34,28 +35,57 @@ homePageInput <- function(id) {
 ## Server
 homePage <- function(input, output, session){
   
+  # -------------------------------------------------------------------
+  
+  ### Query String Parsing Section
+  
+  ## reactive conductor to set the file pathway for 
+  passedUrlData <- reactive({paste(returnServerDataCsvUrl(session$clientData$url_search))})
+  
+  queryLen <- reactive(({parseQueryString(session$clientData$url_search)}))
+  
+  # -------------------------------------------------------------------
+  
   data <- reactive({  #Get the dataset from the URL
-    read.csv(url("http://pgb.liv.ac.uk/~andrew/crowdsource-server/src/public_html/results/20/locations.csv"))
+    if(!length(queryLen())<1){
+      tryCatch({
+        read.csv(url(passedUrlData()))
+      },error = function(e) {return(NULL)})# return a safeError if a parsing error occurs
+    }else{
+      return(NULL)
+    }
   })
   
+  # -------------------------------------------------------------------
+  
   output$mymap <- renderLeaflet({ #shiny output for the map with points from dataset
-    df <- data()
-    m <- leaflet(data = df) %>%
-      addTiles() %>%
-      addMarkers(lng = ~Longitude,
-                 lat = ~Latitude,
-                 popup = paste("Results: ", df$Results)) %>%
-      setView(lng = -3.174, lat = 54.156, zoom = 6) %>%
-      addProviderTiles(providers$CartoDB.Positron)
+    if(!is.null(data())){
+      df <- data()
+      m <- leaflet(data = df) %>% addTiles() %>%
+        addMarkers(lng = ~Longitude,
+                   lat = ~Latitude,
+                   popup = paste("City: ", df$City,"\n","Results: ", df$Results)) %>%
+        addProviderTiles(providers$CartoDB.Positron)
+      
+    }else{
+      m <- leaflet() %>%addTiles() %>% addProviderTiles(providers$CartoDB.Positron)
+    }
     m
   })
+  
+  # -------------------------------------------------------------------
   
   output$plot <- renderPlot({ # Placeholder bar plot for server stats
     df <- data()
     plotDf <- data.frame("Type" = c("Requests","Results"),"Num" = c(sum(df$Requests),sum(df$Results)))
     ggplot(plotDf , aes(Type, Num)) +
-      geom_bar(stat="identity")
+      geom_bar(stat="identity")+ 
+      theme(axis.title.y=element_blank(),
+            axis.text.y=element_blank(),
+            axis.ticks.y=element_blank())
   })
+  
+  # -------------------------------------------------------------------
   
   output$txtout <- renderText({ #Output text stats of server info
     df <- data()
@@ -63,6 +93,19 @@ homePage <- function(input, output, session){
           "\n","Top user of the day: ",df[which.max(df$Results),]$Users,"\n","Requests to results: : ",round(100*sum(df$Results)/sum(df$Requests),digits = 2),"%")
   })
   
+  # -------------------------------------------------------------------
+  
+  ## Table with turn off filtering (no searching boxes)
+  output$ex <- DT::renderDataTable({
+    if(is.null(data())){validate(need(FALSE, "No data set uploaded "))}
+    df <- data()
+    #create a new dataframe for display
+    dfDisplay <- data.frame("City" = df$City,"Country" = df$Country,"Requests" = df$Requests,"Results" = df$Results)
+    #sort and head the top 10
+    dfDisplay <- head(dfDisplay[order(dfDisplay$Results)])
+    dfDisplay$Country <- NULL
+    DT::datatable(dfDisplay, options = list(searching = FALSE))
+  })
 }
 
 # -------------------------------------------------------------------
@@ -116,9 +159,7 @@ dataPageInput <- function(id) {
       
       column(width = 8,
              box(title= "Summary of Data Set",width = 12,
-                 tabPanel('No filtering',style = 'overflow-x: scroll',       DT::dataTableOutput(ns('ex')))),
-             box(h5("Data URL:"),
-                 verbatimTextOutput(ns("queryText")))
+                 tabPanel('No filtering',style = 'overflow-x: scroll',       DT::dataTableOutput(ns('ex'))))
       )
     )
   )
@@ -184,9 +225,6 @@ dataPage <- function(input, output, session,current_dataSet_server_side) {
   
   ### Query String Parsing Section
   
-  ## Parse the GET query string
-  output$queryText <- renderText({passedUrlData()})
-  
   ## reactive conductor to set the file pathway for 
   passedUrlData <- reactive({
     query <- session$clientData$url_search
@@ -202,11 +240,10 @@ dataPage <- function(input, output, session,current_dataSet_server_side) {
   # The content function is passed a filename as an argument, and
   #   it should write out data to that filename.
   output$downloadData <- downloadHandler(
-    
     # This function returns a string which tells the client
     # browser what name to use when saving the file.
     filename = function() {
-      paste(tools::file_path_sans_ext(input$file1), "csv", sep = ".")
+      paste(ifelse(is.null(input$file1),"Crowdsource",tools::file_path_sans_ext(input$file1)),".csv")
     },
     
     # This function should write data to a file given to it by
@@ -743,7 +780,7 @@ scorePageDisplay <- function(input,output,session,current_dataSet_server_side){
   })
   
   callModule(FDRPlot,"FDRcurvePep",plot_FDR_curve,current_dataSet_server_side,fdrPercent)#false discovery rate of peptides
-  callModule(plotlyPlot,"QcurvePep",plot_Q_curve,current_dataSet_server_side)#q val curve
+  callModule(FDRPlot,"QcurvePep",plot_Q_curve,current_dataSet_server_side,fdrPercent)#q val curve
   callModule(FDRPlot,"scorePep",plot_hist_score,current_dataSet_server_side,fdrPercent)#Score distrubution page
   callModule(FDRPlot,"fdrPie",plotIdentFdr,current_dataSet_server_side,fdrPercent)#FDR pie
 }
