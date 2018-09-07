@@ -29,13 +29,14 @@ which is taken from the accession column if no isDecoy column is already present
 column selection also allows the user to specify what to be used as a scoring metric (Note: for mzIdentML files 
 the whole scoring dataframe is binded to the peptide list).
 
-The application also allows for passing the URL of a csv. This has been developed to specifically interface 
+The application also allows for passing the URL of a mzid or csv. This has been developed to specifically interface 
 with the results from the crowdsource. And such is takes /?id=num. Where num is the number in the URL of the 
 directory result from our crowdsource developers file URL. This URL also directs the application to a location 
 for server data. Which is used for plotting points on the leaflet map and user statistics calculations on the 
-homepage.
+homepage. For zn mzid file to be passed, we save the file as temp in th dat file while the application reads it in as mzR
+doesnt support URL as a source dest
 
-Visualisations are done in a mixture of shiny and ggplot. Many offer interactivity such as zooming and mouse 
+Visualizations are done in a mixture of shiny and ggplot. Many offer interactivity such as zooming and mouse 
 over information. Also query creators are placed next to some plots which can be used to change displays.
 
 

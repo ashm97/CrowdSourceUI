@@ -9,6 +9,16 @@
 
 # -------------------------------------------------------------------
 
+### Code that controls Global variable of the string for locations when passing by URL - see functions get URLs
+
+# For example will be the form of http://pgb.liv.ac.uk/~andrew/crowdsource-server/src/public_html/results/  ***ID*** /psm.mzid
+firstPartURL <- "http://pgb.liv.ac.uk/~andrew/crowdsource-server/src/public_html/results"
+psmFileType <- "psm.mzid"
+locationCsvName <- "locations.csv"
+
+
+# -------------------------------------------------------------------
+
 ### Function to return a subsetted dataframe with new columns calculating
 
 # for statistical anal. Takes only one column of the orignal data frame ('FP')
@@ -100,9 +110,31 @@ get_current_dataSet <- function(in_File,passedUrlData,queryLen){
   }else{
     #if no file has been uploaded and there is a passed URL file, then set in_File to the passedUrl and validate
     if(is.null(in_File)&(length(queryLen)>=1)){
-      peptideDf <- get_url_dat(passedUrlData)
-      returnList <- list("pep" = peptideDf, "mod" = getModCsv(peptideDf))
-      return(returnList)
+      
+      
+      ## If a CSV handle as a CSV and if mzIdentML handle acccordingly
+      if(grepl("mzid",passedUrlData)|grepl(".gz",passedUrlData)){
+        
+        
+        progress <- shiny::Progress$new()
+        on.exit(progress$close())
+        progress$set(message = "Getting URL Data", value = 0.99)
+        
+        #save the URL to www file
+        download.file(url=passedUrlData,"./dat/urlMzIdentML.mzid" )
+        
+        #set the address ofthe file to be in the www folder
+        returnList <- list("pep" = handleFileMzid('./dat/urlMzIdentML.mzid'), "mod" = getMzidMod('./dat/urlMzIdentML.mzid'))
+        file.remove('./dat/urlMzIdentML.mzid') # delete the temp file
+        return(returnList)
+        
+      }else{
+        #else assume we are being passed a csv
+        peptideDf <- get_url_dat(passedUrlData)
+        returnList <- list("pep" = peptideDf, "mod" = getModCsv(peptideDf))
+        return(returnList)
+      }
+      
     }
     #check in File
     if(validate_file(in_File)){
@@ -112,11 +144,11 @@ get_current_dataSet <- function(in_File,passedUrlData,queryLen){
         return(returnList)
         
       }else if(grepl("mzid",in_File$datapath)){ #IF .mzid
-        returnList <- list("pep" = handleFileMzid(in_File), "mod" = getMzidMod(in_File))
+        returnList <- list("pep" = handleFileMzid(in_File$datapath), "mod" = getMzidMod(in_File$datapath))
         return(returnList)
       }else{
         #na (gzip currently which is handled the same as mzid)
-        returnList <- list("pep" = handleFileMzid(in_File), "mod" = getMzidMod(in_File))
+        returnList <- list("pep" = handleFileMzid(in_File$datapath), "mod" = getMzidMod(in_File$datapath))
         return(returnList)
       }
       
@@ -168,8 +200,10 @@ get_score_range <- function(df_to_use){
 # for only unique peptide sequences - selecting the top scoring entry - where score is by default always the
 # second column of the score df. Then renames some columns and calculates ppm and gets the cleav count
 
-handleFileMzid <- function(inputFile){
-  mzid <- openIDfile(inputFile$datapath)
+handleFileMzid <- function(targetFile){
+  print(targetFile)
+  mzid <- openIDfile(targetFile)
+  
   mzid_df <- merge(psms(mzid), score(mzid), by="spectrumID")  #merge by spectrumID
   mzid_df <- filter(mzid_df , rank == 1) #subset only rank 1
   
@@ -183,7 +217,7 @@ handleFileMzid <- function(inputFile){
   
   # Add extra columns
   mzid_df <- transform(mzid_df, ppm = ((m.z - calculatedMassToCharge)*1000000)/m.z) # Add a col for ppm
-  
+
   return(mzid_df)
 }
 
@@ -192,8 +226,8 @@ handleFileMzid <- function(inputFile){
 
 ### Function to get the modification df from mzIdenML fies
 
-getMzidMod <- function(inputFile){
-  mods <- modifications(openIDfile(inputFile$datapath))
+getMzidMod <- function(targetFile){
+  mods <- modifications(openIDfile(targetFile))
   return(mods)
 }
 
@@ -316,7 +350,7 @@ checkScoreColNum <- function(df_to_use,selected_col){
 returnDataUrl <- function(string){
   string <- sub("[?]","",string)
   string <- sub("id=","",string)
-  return(paste("http://pgb.liv.ac.uk/~andrew/crowdsource-server/src/public_html/results",string,"psm.csv",sep = "/"))
+  return(paste(firstPartURL,string,psmFileType,sep = "/"))
 }
 
 
@@ -327,7 +361,7 @@ returnDataUrl <- function(string){
 returnServerDataCsvUrl <- function(string){
   string <- sub("[?]","",string)
   string <- sub("id=","",string)
-  return(paste("http://pgb.liv.ac.uk/~andrew/crowdsource-server/src/public_html/results",string,"locations.csv",sep = "/"))
+  return(paste(firstPartURL,string,locationCsvName,sep = "/"))
 }
 
 
@@ -497,25 +531,30 @@ getFormtedColDf <- function(df){
 getInitScoreCol <- function(df){
   colnames <- names(df) # Get the data set with the appropriate name
   
-  #get the selected option
-  if("mzid.Scoring" %in% colnames){
-    col_mat <- grepl("mzid.Scoring",colnames)
-    selected_default <- colnames[which(col_mat)]
-  }else if("X.10lgP" %in% colnames){
-    col_mat <- grepl("X.10lgP",colnames)
-    selected_default <- colnames[which(col_mat)]
+  if(is.element("PSM.level.p.value", colnames)){
+    selected_default_vec <- colnames[which(grepl("PSM.level.p.value",colnames))]
+    return(selected_default_vec)
+  }else if(is.element("peptide.sequence.level.p.value", colnames)){
+    return(colnames[which(grepl("peptide.sequence.level.p.value",colnames))])
+  }else if(is.element("mzid.Scoring", colnames)){
+    return(colnames[which(grepl("mzid.Scoring",colnames))])
+  }else if(is.element("X.10lgP", colnames)){
+    return(colnames[which(grepl("X.10lgP",colnames))])
   }else if("scr.PEAKS.peptideScore" %in% colnames){
-    col_mat <- grepl("scr.PEAKS.peptideScore",colnames)
-    selected_default <- colnames[which(col_mat)]
-  }else if(grep("Score", colnames)){
-    col_mat <- grepl("Score",colnames)
-    selected_default_vec <- colnames[which(col_mat)]
-    selected_default <- selected_default_vec[1]
+    return(colnames[which(grepl("scr.PEAKS.peptideScore",colnames))])
+  }else if("Score" %in% colnames){
+    selected_default_vec <- colnames[which(grepl("Score",colnames))]
+    return(selected_default_vec[1])
+  }else if(is.element("value", colnames)){
+    selected_default_vec <- colnames[which(grepl("value",colnames))]
+    return(selected_default_vec[1])
   }else{
-    selected_default <- NULL
+    return(NULL)
   }
   
-  return(selected_default)
+  
+  
+  return(NULL)
 }
 
 
