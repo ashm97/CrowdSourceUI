@@ -202,6 +202,7 @@ dataPage <- function(input, output, session,current_dataSet_server_side) {
   })
   
   
+  
   ## Table with turn off filtering (no searching boxes)
   output$ex <- DT::renderDataTable(
     if(is.null(current_dataSet()$pep)){validate(need(FALSE, "No data set uploaded "))}
@@ -212,10 +213,13 @@ dataPage <- function(input, output, session,current_dataSet_server_side) {
 
   ### Validation Section for User selections
   
-  ## Give user validation of score column selection
+  ## Give user validation of score column selection 
   observeEvent(input$column, {  #warn user of column non numeric
-    ifelse(checkScoreColNum(current_dataSet()$pep,input$column),shinyalert(title = "Warning!",text = "Score must be a numeric value",
-                                                                           type = "warning"),showNotification("Score Column Set.",type = "message"))
+    if(checkScoreColNum(current_dataSet()$pep,input$column)){
+      shinyalert(title = "Warning!",text = "Score must be a numeric value",type = "warning")
+    }else{
+      showNotification("Score Column Set.",type = "message")
+    }
   })
   
   ## Give user validation of Decoy Term selection
@@ -369,19 +373,8 @@ singleScatPage <- function(input, output, session, current_dataSet_server_side){
       validate(need(FALSE, "No data set uploaded "))
       return()
     }
-    
-    
-    colnames <- getColNames(current_dataSet_server_side()$pep)
-    
-    #get the selected option
-    if("RT" %in% colnames){
-      col_mat <- grepl("RT",colnames)
-      selected_default <- colnames[which(col_mat)]
-    }else{
-      selected_default <- NULL
-    }
-    
-    selectInput(ns("choose_columns_X"), "Choose X axis", as.list(colnames),selected = selected_default) #Create the drop down list
+    selectInput(ns("choose_columns_X"), "Choose X axis", as.list(getColNames(current_dataSet_server_side()$pep)),
+                selected = "RT") #Create the drop down list
   })
   
   
@@ -392,18 +385,7 @@ singleScatPage <- function(input, output, session, current_dataSet_server_side){
       validate(need(FALSE, "No data set uploaded "))
       return()
     }
-    
-    colnames <- getColNames(current_dataSet_server_side()$pep)
-    
-    #get the selected option
-    if("Mass" %in% colnames){
-      col_mat <- grepl("Mass",colnames)
-      selected_default <- colnames[which(col_mat)]
-    }else{
-      selected_default <- NULL
-    }
-    
-    selectInput(ns("choose_columns_Y"), "Choose Y axis", as.list(colnames),selected = selected_default) #Create the drop down list
+    selectInput(ns("choose_columns_Y"), "Choose Y axis", as.list(getColNames(current_dataSet_server_side()$pep)),selected = "Mass") #Create the drop down list
   })
   
   
